@@ -1,8 +1,0 @@
-# For training (train.py) and running locally
-pandas
-numpy
-scikit-learn
-joblib
-torch
-fastapi
-uvicorn
