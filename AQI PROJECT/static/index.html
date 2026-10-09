@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Air quality predictor</title>
+<style>
+  :root {
+    --ink: #1d2a2e;
+    --paper: #f3f6f4;
+    --line: #c9d3cf;
+    --accent: #1f5f5b;
+    --result-bg: #dfe6e3;
+    --result-ink: #1d2a2e;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--paper); color: var(--ink);
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    line-height: 1.5;
+  }
+  main {
+    max-width: 980px; margin: 0 auto; padding: 40px 20px;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 32px; align-items: start;
+  }
+  h1 { font-size: 1.9rem; margin: 0 0 8px; line-height: 1.2; }
+  .lede { margin: 0 0 24px; max-width: 46ch; }
+  form { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  label { display: grid; gap: 4px; font-size: .9rem; }
+  label small { color: #5d6c68; }
+  input {
+    padding: 10px 12px; font-size: 1rem; border: 1px solid var(--line);
+    border-radius: 6px; background: #fff; color: var(--ink);
+  }
+  input:focus-visible, button:focus-visible { outline: 3px solid var(--accent); outline-offset: 1px; }
+  button {
+    grid-column: 1 / -1; padding: 12px; font-size: 1rem; font-weight: 600;
+    background: var(--accent); color: #fff; border: 0; border-radius: 6px; cursor: pointer;
+  }
+  button:disabled { opacity: .6; cursor: wait; }
+  .result {
+    background: var(--result-bg); color: var(--result-ink);
+    border-radius: 10px; padding: 32px; min-height: 280px;
+    display: flex; flex-direction: column; justify-content: center;
+    transition: background .35s ease, color .35s ease;
+  }
+  .result .value { font-size: 5rem; font-weight: 700; line-height: 1; margin: 0; }
+  .result .cat { font-size: 1.6rem; font-weight: 600; margin: 8px 0 12px; }
+  .result p { margin: 0; max-width: 34ch; }
+  @media (max-width: 760px) { main { grid-template-columns: 1fr; } }
+  @media (prefers-reduced-motion: reduce) { .result { transition: none; } }
+</style>
+</head>
+<body>
+<main>
+  <section>
+    <h1>Predict the air quality index</h1>
+    <p class="lede">Enter pollutant readings from a monitoring station to get the predicted AQI and its category.</p>
+    <form id="form">
+      <label>PM2.5 <small>µg/m³</small><input name="pm25" type="number" step="any" min="0" value="80" required></label>
+      <label>PM10 <small>µg/m³</small><input name="pm10" type="number" step="any" min="0" value="150" required></label>
+      <label>NO <small>µg/m³</small><input name="no" type="number" step="any" min="0" value="15" required></label>
+      <label>NO2 <small>µg/m³</small><input name="no2" type="number" step="any" min="0" value="30" required></label>
+      <label>NH3 <small>µg/m³</small><input name="nh3" type="number" step="any" min="0" value="20" required></label>
+      <label>CO <small>mg/m³</small><input name="co" type="number" step="any" min="0" value="1" required></label>
+      <label>SO2 <small>µg/m³</small><input name="so2" type="number" step="any" min="0" value="10" required></label>
+      <label>O3 <small>µg/m³</small><input name="o3" type="number" step="any" min="0" value="35" required></label>
+      <button type="submit" id="btn">Predict AQI</button>
+    </form>
+  </section>
+
+  <section class="result" id="result" aria-live="polite">
+    <p class="cat" id="cat">No prediction yet</p>
+    <p id="msg">Fill in the readings and select Predict AQI.</p>
+  </section>
+</main>
+
+<script>
+  // Colors follow the official Indian AQI scale
+  const STYLE = {
+    "Good":         { bg: "#2e9e57", ink: "#fff", msg: "Air quality is satisfactory and poses little risk." },
+    "Satisfactory": { bg: "#a6d46f", ink: "#1d2a2e", msg: "Acceptable. Sensitive people may feel minor breathing discomfort." },
+    "Moderate":     { bg: "#f0d33c", ink: "#1d2a2e", msg: "People with lung or heart conditions may feel discomfort." },
+    "Poor":         { bg: "#f08c1f", ink: "#1d2a2e", msg: "Prolonged exposure can cause breathing discomfort for most people." },
+    "Very Poor":    { bg: "#d8352a", ink: "#fff", msg: "Respiratory illness likely on prolonged exposure. Limit outdoor activity." },
+    "Severe":       { bg: "#7a1620", ink: "#fff", msg: "Affects healthy people and seriously affects those with existing conditions. Stay indoors." }
+  };
+
+  const form = document.getElementById("form");
+  const btn = document.getElementById("btn");
+  const result = document.getElementById("result");
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const data = Object.fromEntries(new FormData(form));
+    for (const k in data) data[k] = parseFloat(data[k]);
+
+    btn.disabled = true; btn.textContent = "Predicting...";
+    try {
+      const res = await fetch("/predict", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data)
+      });
+      if (!res.ok) throw new Error("Server returned " + res.status);
+      const out = await res.json();
+      const s = STYLE[out.category];
+      result.style.setProperty("--result-bg", s.bg);
+      result.style.setProperty("--result-ink", s.ink);
+      result.innerHTML =
+        '<p class="value">' + out.aqi + '</p>' +
+        '<p class="cat">' + out.category + '</p>' +
+        '<p>' + s.msg + '</p>';
+    } catch (err) {
+      result.innerHTML = '<p class="cat">Prediction failed</p><p>' + err.message +
+        '. Check that the server is running and every field has a value.</p>';
+    } finally {
+      btn.disabled = false; btn.textContent = "Predict AQI";
+    }
+  });
+</script>
+</body>
+</html>

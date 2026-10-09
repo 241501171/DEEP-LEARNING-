@@ -1,0 +1,7 @@
+# Used inside Docker (no PyTorch needed for serving)
+pandas
+numpy
+scikit-learn
+joblib
+fastapi
+uvicorn

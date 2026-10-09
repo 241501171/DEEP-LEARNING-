@@ -1,0 +1,5 @@
+Model,MAE,RMSE,R2,Accuracy,F1
+Linear Regression,31.24,59.53,0.806,0.683,0.673
+Random Forest,21.33,41.88,0.904,0.796,0.794
+Gradient Boosting (tuned),22.41,41.78,0.905,0.773,0.767
+MLP (PyTorch),24.26,44.22,0.893,0.744,0.733
